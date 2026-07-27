@@ -865,7 +865,7 @@ export default function App() {
                       <td style={{ padding: '1rem 1.25rem', fontWeight: 700, color: 'var(--primary-dark)', fontSize: '0.95rem' }}>
                         ${pedido.importe}
                       </td>
-                      <td style={{ padding: '1rem 1.25rem', fontSize: '0.8rem', color: '#475569', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pedido.notes}>
+                      <td style={{ padding: '1rem 1.25rem', fontSize: '0.8rem', color: '#475569', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pedido.notas}>
                         {pedido.notas || '-'}
                       </td>
                       <td style={{ padding: '1rem 1.25rem' }}>
