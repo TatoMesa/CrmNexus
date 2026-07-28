@@ -768,7 +768,7 @@ body {
   align-items: flex-start;
   justify-content: center;
   z-index: 100;
-  padding: 1rem;
+  padding: 2rem 1rem;
   overflow-y: auto;
   animation: fadeIn 0.2s ease-out;
 }
@@ -778,12 +778,12 @@ body {
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 550px;
-  max-height: calc(100vh - 2rem);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: auto;
 }
 
 .modal-header {
