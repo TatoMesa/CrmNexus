@@ -44,26 +44,20 @@ class PedidoViewSet(viewsets.ModelViewSet):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def subir_archivo(request, pedido_id):
+def agregar_archivo(request, pedido_id):
     try:
         pedido = Pedido.objects.get(id=pedido_id)
     except Pedido.DoesNotExist:
         return Response({'error': 'Pedido no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-    archivo = request.FILES.get('archivo')
-    if not archivo:
-        return Response({'error': 'No se envió archivo'}, status=status.HTTP_400_BAD_REQUEST)
+    nombre = request.data.get('nombre', '').strip()
+    url = request.data.get('url', '').strip()
 
-    adjunto = ArchivoAdjunto.objects.create(
-        pedido=pedido,
-        nombre=archivo.name,
-        archivo=archivo,
-    )
-    return Response(
-        ArchivoAdjuntoSerializer(adjunto, context={'request': request}).data,
-        status=status.HTTP_201_CREATED
-    )
+    if not nombre or not url:
+        return Response({'error': 'Nombre y URL son requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
+    adjunto = ArchivoAdjunto.objects.create(pedido=pedido, nombre=nombre, url=url)
+    return Response(ArchivoAdjuntoSerializer(adjunto).data, status=status.HTTP_201_CREATED)
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])

@@ -1,3 +1,4 @@
+import { apiLogin, apiLogout, apiGetPedidos, apiCreatePedido, apiUpdatePedido, apiDeletePedido, apiAgregarArchivo, apiEliminarArchivo} from './api';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 
 interface ArchivoAdjunto {
+  id?: number;
   nombre: string;
   url: string;
 }
@@ -66,10 +68,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'board' | 'history'>('board');
 
   // Pedidos State
-  const [pedidos, setPedidos] = useState<Pedido[]>(() => {
-    const saved = localStorage.getItem('nexus_crm_pedidos');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [,setLoading] = useState(false);
 
   const [search, setSearch] = useState('');
   const [historySearch, setHistorySearch] = useState('');
@@ -94,27 +94,37 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Save to localStorage
+// Cargar pedidos desde la API al autenticarse
   useEffect(() => {
-    localStorage.setItem('nexus_crm_pedidos', JSON.stringify(pedidos));
-  }, [pedidos]);
+    if (isAuthenticated) {
+      setLoading(true);
+      apiGetPedidos()
+        .then(data => setPedidos(data))
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }
+  }, [isAuthenticated]);
+  
 
   // Handle Login
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginPassword === 'nexus2026') {
+    try {
+      await apiLogin(loginPassword);
       setIsAuthenticated(true);
       sessionStorage.setItem('nexus_authenticated', 'true');
       setLoginError('');
       setLoginPassword('');
-    } else {
+    } catch {
       setLoginError('Contraseña incorrecta. Inténtalo de nuevo.');
     }
   };
 
   // Handle Logout
   const handleLogout = () => {
+    apiLogout();
     setIsAuthenticated(false);
+    setPedidos([]);
     sessionStorage.removeItem('nexus_authenticated');
   };
 
@@ -157,18 +167,15 @@ export default function App() {
   };
 
   // Save Form (Create or Update)
-  const handleSavePedido = (e: React.FormEvent) => {
+  const handleSavePedido = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!formCliente.trim()) {
-      alert('Por favor ingresa el nombre del cliente');
+      alert('Por favor ingresá el nombre del cliente');
       return;
     }
-
     const señaVal = parseFloat(formSeña) || 0;
     const importeVal = parseFloat(formImporte) || 0;
-
-    const data: Omit<Pedido, 'id' | 'fecha'> = {
+    const data = {
       cliente: formCliente.trim(),
       telefono: formTelefono.trim(),
       color: formColor,
@@ -179,69 +186,87 @@ export default function App() {
       importe: importeVal,
       estado: formEstado,
       notas: formNotas.trim(),
-      archivos: formArchivos
     };
-
-    if (editingPedido) {
-      // Update
-      setPedidos(prev => prev.map(p => p.id === editingPedido.id ? { ...p, ...data } : p));
-    } else {
-      // Create
-      const newPedido: Pedido = {
-        ...data,
-        id: Date.now().toString(),
-        fecha: new Date().toLocaleDateString('es-AR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      };
-      setPedidos(prev => [newPedido, ...prev]);
+    try {
+      if (editingPedido) {
+        const updated = await apiUpdatePedido(editingPedido.id, data);
+        setPedidos(prev => prev.map(p => p.id === editingPedido.id ? updated : p));
+      } else {
+        const created = await apiCreatePedido(data);
+        // Guardar archivos adjuntos si los hay
+        if (formArchivos.length > 0) {
+          const archivosGuardados = await Promise.all(
+            formArchivos.map(a => apiAgregarArchivo(created.id, a.nombre, a.url))
+          );
+          created.archivos = archivosGuardados;
+        }
+        setPedidos(prev => [created, ...prev]);
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      alert('Error al guardar el pedido. Intentá de nuevo.');
     }
-
-    setIsModalOpen(false);
   };
 
   // Delete Pedido
-  const handleDeletePedido = (id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este pedido permanentemente?')) {
-      setPedidos(prev => prev.filter(p => p.id !== id));
+  const handleDeletePedido = async (id: string) => {
+    if (window.confirm('¿Estás seguro de que querés eliminar este pedido permanentemente?')) {
+      try {
+        await apiDeletePedido(id);
+        setPedidos(prev => prev.filter(p => p.id !== id));
+      } catch {
+        alert('Error al eliminar el pedido.');
+      }
     }
   };
 
   // Archive / Deliver Pedido
-  const handleDeliverPedido = (id: string) => {
-    if (window.confirm('¿Confirmas que el pedido ha sido entregado? Se moverá al historial de archivados.')) {
-      setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado: 'Entregado' } : p));
+  const handleDeliverPedido = async (id: string) => {
+    if (window.confirm('¿Confirmás que el pedido fue entregado? Se moverá al historial.')) {
+      try {
+        const updated = await apiUpdatePedido(id, { estado: 'Entregado' });
+        setPedidos(prev => prev.map(p => p.id === id ? updated : p));
+      } catch {
+        alert('Error al actualizar el pedido.');
+      }
     }
   };
 
   // Reopen Pedido (from History to Active Board)
-  const handleReopenPedido = (id: string) => {
-    if (window.confirm('¿Deseas reabrir este pedido y devolverlo al tablero activo?')) {
-      setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado: 'Cliente Avisado' } : p));
+  const handleReopenPedido = async (id: string) => {
+    if (window.confirm('¿Deseás reabrir este pedido y devolverlo al tablero activo?')) {
+      try {
+        const updated = await apiUpdatePedido(id, { estado: 'Cliente Avisado' });
+        setPedidos(prev => prev.map(p => p.id === id ? updated : p));
+      } catch {
+        alert('Error al reabrir el pedido.');
+      }
     }
   };
 
   // Move Column via Buttons
-  const movePedido = (id: string, direction: 'prev' | 'next') => {
-    setPedidos(prev => prev.map(p => {
-      if (p.id !== id) return p;
-      
-      if (p.estado === 'Cliente Avisado' && direction === 'next') {
-        // Al avanzar desde el último estado, se archiva como entregado
-        handleDeliverPedido(id);
-        return p;
-      }
+  const movePedido = async (id: string, direction: 'prev' | 'next') => {
+    const pedido = pedidos.find(p => p.id === id);
+    if (!pedido) return;
 
-      const currentIndex = COLUMNS.findIndex(c => c.key === p.estado);
-      let nextIndex = currentIndex;
-      if (direction === 'prev' && currentIndex > 0) nextIndex--;
-      if (direction === 'next' && currentIndex < COLUMNS.length - 1) nextIndex++;
-      return { ...p, estado: COLUMNS[nextIndex].key };
-    }));
+    if (pedido.estado === 'Cliente Avisado' && direction === 'next') {
+      handleDeliverPedido(id);
+      return;
+    }
+
+    const currentIndex = COLUMNS.findIndex(c => c.key === pedido.estado);
+    let nextIndex = currentIndex;
+    if (direction === 'prev' && currentIndex > 0) nextIndex--;
+    if (direction === 'next' && currentIndex < COLUMNS.length - 1) nextIndex++;
+
+    if (nextIndex !== currentIndex) {
+      try {
+        const updated = await apiUpdatePedido(id, { estado: COLUMNS[nextIndex].key });
+        setPedidos(prev => prev.map(p => p.id === id ? updated : p));
+      } catch {
+        alert('Error al mover el pedido.');
+      }
+    }
   };
 
   // Drag and Drop Logic
@@ -249,11 +274,16 @@ export default function App() {
     e.dataTransfer.setData('text/plain', id);
   };
 
-  const handleDrop = (e: React.DragEvent, targetCol: ColumnStatus) => {
+  const handleDrop = async (e: React.DragEvent, targetCol: ColumnStatus) => {
     e.preventDefault();
     const id = e.dataTransfer.getData('text/plain');
     if (id) {
-      setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado: targetCol } : p));
+      try {
+        const updated = await apiUpdatePedido(id, { estado: targetCol });
+        setPedidos(prev => prev.map(p => p.id === id ? updated : p));
+      } catch {
+        alert('Error al mover el pedido.');
+      }
     }
   };
 
@@ -1119,7 +1149,23 @@ export default function App() {
                             type="button" 
                             className="btn-card-action delete" 
                             style={{ width: '22px', height: '22px' }} 
-                            onClick={() => setFormArchivos(prev => prev.filter((_, i) => i !== idx))}
+                            onClick={async () => {
+                              if (editingPedido && (file as any).id) {
+                                try {
+                                  await apiEliminarArchivo((file as any).id);
+                                  setFormArchivos(prev => prev.filter((_, i) => i !== idx));
+                                  setPedidos(prev => prev.map(p =>
+                                    p.id === editingPedido.id
+                                      ? { ...p, archivos: (p.archivos || []).filter((_, i) => i !== idx) }
+                                      : p
+                                  ));
+                                } catch {
+                                  alert('Error al eliminar el archivo.');
+                                }
+                              } else {
+                                setFormArchivos(prev => prev.filter((_, i) => i !== idx));
+                              }
+                            }}
                           >
                             <X size={10} />
                           </button>
@@ -1155,12 +1201,33 @@ export default function App() {
                       type="button" 
                       className="btn btn-secondary" 
                       style={{ padding: '0.5rem 0.75rem' }}
-                      onClick={() => {
+                      onClick={async () => {
                         if (!newArchivoNombre.trim() || !newArchivoUrl.trim()) {
-                          alert('Ingresa una etiqueta y la URL/Ruta');
+                          alert('Ingresá una etiqueta y la URL/Ruta');
                           return;
                         }
-                        setFormArchivos(prev => [...prev, { nombre: newArchivoNombre.trim(), url: newArchivoUrl.trim() }]);
+                        if (editingPedido) {
+                          // Si estamos editando, guardamos directo en la API
+                          try {
+                            const adjunto = await apiAgregarArchivo(
+                              editingPedido.id,
+                              newArchivoNombre.trim(),
+                              newArchivoUrl.trim()
+                            );
+                            setFormArchivos(prev => [...prev, adjunto]);
+                            // Actualizar también el estado global
+                            setPedidos(prev => prev.map(p =>
+                              p.id === editingPedido.id
+                                ? { ...p, archivos: [...(p.archivos || []), adjunto] }
+                                : p
+                            ));
+                          } catch {
+                            alert('Error al guardar el archivo.');
+                          }
+                        } else {
+                          // Si es nuevo pedido, lo guardamos en el estado local hasta que se cree
+                          setFormArchivos(prev => [...prev, { nombre: newArchivoNombre.trim(), url: newArchivoUrl.trim() }]);
+                        }
                         setNewArchivoNombre('');
                         setNewArchivoUrl('');
                       }}

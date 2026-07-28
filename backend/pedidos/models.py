@@ -40,7 +40,7 @@ class Pedido(models.Model):
 class ArchivoAdjunto(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='archivos')
     nombre = models.CharField(max_length=255)
-    archivo = models.FileField(upload_to='adjuntos/%Y/%m/')
+    url = models.TextField()
 
     def __str__(self):
         return self.nombre

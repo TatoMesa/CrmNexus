@@ -3,17 +3,9 @@ from .models import Pedido, ArchivoAdjunto
 
 
 class ArchivoAdjuntoSerializer(serializers.ModelSerializer):
-    url = serializers.SerializerMethodField()
-
     class Meta:
         model = ArchivoAdjunto
         fields = ['id', 'nombre', 'url']
-
-    def get_url(self, obj):
-        request = self.context.get('request')
-        if obj.archivo and request:
-            return request.build_absolute_uri(obj.archivo.url)
-        return ''
 
 
 class PedidoSerializer(serializers.ModelSerializer):
