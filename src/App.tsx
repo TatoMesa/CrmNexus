@@ -33,6 +33,7 @@ interface ArchivoAdjunto {
 
 interface Pedido {
   id: string;
+  numero?: number;
   cliente: string;
   telefono: string;
   color: 'ByN' | 'Color';
@@ -431,7 +432,7 @@ export default function App() {
   // Filtered Pedidos
   const filteredActivePedidos = activePedidos.filter(p => {
     const query = search.toLowerCase();
-    const formattedId = formatPedidoId(p.id).toLowerCase();
+    const formattedId = formatPedidoId(p.numero ?? p.id).toLowerCase();
     return (
       p.cliente.toLowerCase().includes(query) ||
       p.telefono.includes(query) ||
@@ -443,7 +444,7 @@ export default function App() {
 
   const filteredHistoryPedidos = deliveredPedidos.filter(p => {
     const query = historySearch.toLowerCase();
-    const formattedId = formatPedidoId(p.id).toLowerCase();
+    const formattedId = formatPedidoId(p.numero ?? p.id).toLowerCase();
     return (
       p.cliente.toLowerCase().includes(query) ||
       p.telefono.includes(query) ||
@@ -684,7 +685,7 @@ export default function App() {
                                     border: '1px solid #a7f3d0',
                                     letterSpacing: '0.02em'
                                   }}>
-                                    {formatPedidoId(pedido.id)}
+                                    {formatPedidoId(pedido.numero ?? pedido.id)}
                                   </span>
                                   <h4 className="card-client" style={{ margin: 0 }}>{pedido.cliente}</h4>
                                 </div>
@@ -936,7 +937,7 @@ export default function App() {
                             borderRadius: '4px',
                             border: '1px solid #cbd5e1'
                           }}>
-                            {formatPedidoId(pedido.id)}
+                            {formatPedidoId(pedido.numero ??pedido.id)}
                           </span>
                           <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{pedido.cliente}</span>
                         </div>
@@ -1033,7 +1034,7 @@ export default function App() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">
-                {editingPedido ? `Editar Pedido ${formatPedidoId(editingPedido.id)}` : 'Nuevo Pedido'}
+                {editingPedido ? `Editar Pedido ${formatPedidoId(editingPedido.numero ?? editingPedido.id)}` : 'Nuevo Pedido'}
               </h3>
               <button className="modal-close" onClick={() => setIsModalOpen(false)}>
                 <X size={18} />

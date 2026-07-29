@@ -3,6 +3,8 @@ import uuid
 
 
 class Pedido(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    numero = models.PositiveIntegerField('Número de pedido', unique=True, blank=True, null=True)
     COLOR_CHOICES = [('ByN', 'Blanco y Negro'), ('Color', 'Color')]
     CARAS_CHOICES = [('Simple', 'Simple'), ('Doble', 'Doble')]
     DISTRIBUCION_CHOICES = [('Normal', 'Normal'), ('Apaisada', 'Apaisada')]
@@ -13,7 +15,6 @@ class Pedido(models.Model):
         ('Cliente Avisado', 'Cliente Avisado'),
         ('Entregado', 'Entregado'),
     ]
-
     cliente = models.CharField(max_length=200)
     telefono = models.CharField(max_length=50, blank=True)
     color = models.CharField(max_length=10, choices=COLOR_CHOICES, default='ByN')
@@ -26,6 +27,12 @@ class Pedido(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Nuevo')
     fecha = models.DateTimeField(auto_now_add=True)
     orden = models.PositiveIntegerField(default=0)
+
+    def save(self, *args, **kwargs):
+        if not self.numero:
+            ultimo = Pedido.objects.aggregate(models.Max('numero'))['numero__max']
+            self.numero = (ultimo or 0) + 1
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['orden', '-fecha']
