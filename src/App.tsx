@@ -76,6 +76,12 @@ export default function App() {
   const [activeMobileCol, setActiveMobileCol] = useState<ColumnStatus>('Nuevo');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
+  // Toast State
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Form States
   const [formCliente, setFormCliente] = useState('');
@@ -115,8 +121,8 @@ export default function App() {
       sessionStorage.setItem('nexus_authenticated', 'true');
       setLoginError('');
       setLoginPassword('');
-    } catch {
-      setLoginError('Contraseña incorrecta. Inténtalo de nuevo.');
+    } catch (err: any) {
+      setLoginError(err?.message || 'Contraseña incorrecta. Inténtalo de nuevo.');
     }
   };
 
@@ -643,7 +649,6 @@ export default function App() {
                         const saldoRestante = pedido.importe - pedido.seña;
                         const formatPhone = pedido.telefono.replace(/\D/g, '');
                         const hasWsp = formatPhone.length > 5;
-                        const wspLink = hasWsp ? `https://wa.me/${formatPhone}` : '#';
 
                         return (
                           <div 
@@ -769,15 +774,33 @@ export default function App() {
                               {/* Quick Actions */}
                               <div className="card-control-btns">
                                 {hasWsp && (
-                                  <a 
-                                    href={wspLink} 
-                                    target="_blank" 
-                                    rel="noreferrer" 
-                                    className="btn-card-action wsp" 
-                                    title="Enviar WhatsApp"
-                                  >
-                                    <MessageCircle size={14} />
-                                  </a>
+                                  <>
+                                    <button 
+                                      type="button"
+                                      className="btn-card-action wsp" 
+                                      title="Copiar teléfono (ideal para pegar en WhatsApp Web sin abrir pestañas extras)"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(formatPhone);
+                                        showToast(`Teléfono ${formatPhone} copiado. Pégalo en tu WhatsApp Web (Ctrl+V)`);
+                                      }}
+                                      style={{ backgroundColor: '#ecfdf5', color: '#047857', borderColor: '#a7f3d0' }}
+                                    >
+                                      <MessageCircle size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn-card-action"
+                                      title="Copiar mensaje de aviso listo para enviar"
+                                      onClick={() => {
+                                        const msg = `Hola ${pedido.cliente}, tu pedido de impresión en Nexus está listo. Saldo pendiente: $${saldoRestante}.`;
+                                        navigator.clipboard.writeText(msg);
+                                        showToast(`Aviso para ${pedido.cliente} copiado al portapapeles`);
+                                      }}
+                                      style={{ fontSize: '0.7rem', color: '#0284c7', borderColor: '#bae6fd', backgroundColor: '#f0f9ff' }}
+                                    >
+                                      Copiar Aviso
+                                    </button>
+                                  </>
                                 )}
                                 <button 
                                   className="btn-card-action edit" 
@@ -1248,6 +1271,30 @@ export default function App() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '2rem',
+          right: '2rem',
+          backgroundColor: '#0f172a',
+          color: '#ffffff',
+          padding: '0.85rem 1.25rem',
+          borderRadius: '10px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.25)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.6rem',
+          fontSize: '0.9rem',
+          fontWeight: 600,
+          animation: 'fadeIn 0.2s ease-in-out'
+        }}>
+          <CheckCircle size={18} style={{ color: '#10b981' }} />
+          <span>{toastMessage}</span>
         </div>
       )}
 

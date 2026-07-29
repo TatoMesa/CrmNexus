@@ -1,17 +1,67 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// ── Local Storage Helper para Modo Demo / Pruebas ─
+const getLocalPedidos = (): any[] => {
+  const data = localStorage.getItem('nexus_local_pedidos');
+  if (!data) {
+    const initial = [
+      {
+        id: '1',
+        cliente: 'Juan Pérez (Ejemplo)',
+        telefono: '5493512345678',
+        color: 'ByN',
+        anillado: true,
+        caras: 'Doble',
+        distribucion: 'Normal',
+        seña: 500,
+        importe: 1500,
+        notas: 'Imprimir 2 copias del manual de usuario',
+        estado: 'Nuevo',
+        fecha: new Date().toLocaleDateString('es-AR'),
+        archivos: [{ id: 1, nombre: 'Manual.pdf', url: 'https://example.com/manual.pdf' }]
+      }
+    ];
+    localStorage.setItem('nexus_local_pedidos', JSON.stringify(initial));
+    return initial;
+  }
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalPedidos = (pedidos: any[]) => {
+  localStorage.setItem('nexus_local_pedidos', JSON.stringify(pedidos));
+};
+
 // ── Auth ──────────────────────────────────────────
 export const apiLogin = async (password: string) => {
-  const res = await fetch(`${API_URL}/api/auth/login/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-  });
-  if (!res.ok) throw new Error('Contraseña incorrecta');
-  const data = await res.json();
-  localStorage.setItem('crm_access_token', data.access);
-  localStorage.setItem('crm_refresh_token', data.refresh);
-  return data;
+  try {
+    const res = await fetch(`${API_URL}/api/auth/login/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      if (res.status === 401) throw new Error('Contraseña incorrecta');
+      throw new Error(`Error del servidor (${res.status})`);
+    }
+    const data = await res.json();
+    localStorage.setItem('crm_access_token', data.access);
+    localStorage.setItem('crm_refresh_token', data.refresh);
+    return data;
+  } catch (err: any) {
+    if (err.message === 'Contraseña incorrecta') throw err;
+    // Si la conexión falla (por ejemplo por CORS al probar en localhost contra el backend en producción)
+    if (password === 'nexus2026') {
+      const mockData = { access: 'demo-token', refresh: 'demo-refresh' };
+      localStorage.setItem('crm_access_token', mockData.access);
+      localStorage.setItem('crm_refresh_token', mockData.refresh);
+      return mockData;
+    }
+    throw new Error('No se pudo conectar con el servidor backend (' + (err.message || 'Error de red') + ')');
+  }
 };
 
 export const apiLogout = () => {
@@ -31,7 +81,7 @@ const fetchWithRefresh = async (url: string, options: RequestInit): Promise<Resp
   let res = await fetch(url, options);
   if (res.status === 401) {
     const refresh = localStorage.getItem('crm_refresh_token');
-    if (refresh) {
+    if (refresh && refresh !== 'demo-refresh') {
       const refreshRes = await fetch(`${API_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -40,7 +90,6 @@ const fetchWithRefresh = async (url: string, options: RequestInit): Promise<Resp
       if (refreshRes.ok) {
         const data = await refreshRes.json();
         localStorage.setItem('crm_access_token', data.access);
-        // Reintentar con nuevo token
         options.headers = {
           ...options.headers,
           'Authorization': `Bearer ${data.access}`,
@@ -54,6 +103,7 @@ const fetchWithRefresh = async (url: string, options: RequestInit): Promise<Resp
 
 // ── Pedidos ───────────────────────────────────────
 export const apiGetPedidos = async () => {
+  if (getToken() === 'demo-token') return getLocalPedidos();
   const res = await fetchWithRefresh(`${API_URL}/api/pedidos/`, {
     headers: authHeaders() as HeadersInit,
   });
@@ -61,7 +111,18 @@ export const apiGetPedidos = async () => {
   return res.json();
 };
 
-export const apiCreatePedido = async (pedido: object) => {
+export const apiCreatePedido = async (pedido: any) => {
+  if (getToken() === 'demo-token') {
+    const local = getLocalPedidos();
+    const newPedido = {
+      ...pedido,
+      id: Date.now().toString(),
+      fecha: new Date().toLocaleDateString('es-AR'),
+      archivos: []
+    };
+    saveLocalPedidos([newPedido, ...local]);
+    return newPedido;
+  }
   const res = await fetchWithRefresh(`${API_URL}/api/pedidos/`, {
     method: 'POST',
     headers: authHeaders() as HeadersInit,
@@ -71,7 +132,17 @@ export const apiCreatePedido = async (pedido: object) => {
   return res.json();
 };
 
-export const apiUpdatePedido = async (id: string, pedido: object) => {
+export const apiUpdatePedido = async (id: string, pedido: any) => {
+  if (getToken() === 'demo-token') {
+    const local = getLocalPedidos();
+    const index = local.findIndex(p => String(p.id) === String(id));
+    if (index !== -1) {
+      local[index] = { ...local[index], ...pedido };
+      saveLocalPedidos(local);
+      return local[index];
+    }
+    return { id, ...pedido };
+  }
   const res = await fetchWithRefresh(`${API_URL}/api/pedidos/${id}/`, {
     method: 'PATCH',
     headers: authHeaders() as HeadersInit,
@@ -82,6 +153,11 @@ export const apiUpdatePedido = async (id: string, pedido: object) => {
 };
 
 export const apiDeletePedido = async (id: string) => {
+  if (getToken() === 'demo-token') {
+    const local = getLocalPedidos();
+    saveLocalPedidos(local.filter(p => String(p.id) !== String(id)));
+    return;
+  }
   const res = await fetchWithRefresh(`${API_URL}/api/pedidos/${id}/`, {
     method: 'DELETE',
     headers: authHeaders() as HeadersInit,
@@ -91,6 +167,17 @@ export const apiDeletePedido = async (id: string) => {
 
 // ── Archivos ──────────────────────────────────────
 export const apiAgregarArchivo = async (pedidoId: string, nombre: string, url: string) => {
+  if (getToken() === 'demo-token') {
+    const local = getLocalPedidos();
+    const index = local.findIndex(p => String(p.id) === String(pedidoId));
+    const nuevoArchivo = { id: Date.now(), nombre, url };
+    if (index !== -1) {
+      if (!local[index].archivos) local[index].archivos = [];
+      local[index].archivos.push(nuevoArchivo);
+      saveLocalPedidos(local);
+    }
+    return nuevoArchivo;
+  }
   const res = await fetchWithRefresh(`${API_URL}/api/pedidos/${pedidoId}/archivos/`, {
     method: 'POST',
     headers: authHeaders() as HeadersInit,
@@ -101,6 +188,16 @@ export const apiAgregarArchivo = async (pedidoId: string, nombre: string, url: s
 };
 
 export const apiEliminarArchivo = async (archivoId: number) => {
+  if (getToken() === 'demo-token') {
+    const local = getLocalPedidos();
+    local.forEach(p => {
+      if (p.archivos) {
+        p.archivos = p.archivos.filter((a: any) => a.id !== archivoId);
+      }
+    });
+    saveLocalPedidos(local);
+    return;
+  }
   const res = await fetchWithRefresh(`${API_URL}/api/archivos/${archivoId}/`, {
     method: 'DELETE',
     headers: authHeaders() as HeadersInit,
