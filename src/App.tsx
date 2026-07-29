@@ -825,9 +825,9 @@ export default function App() {
                                         navigator.clipboard.writeText(msg);
                                         showToast(`Aviso para ${pedido.cliente} copiado al portapapeles`);
                                       }}
-                                      style={{ fontSize: '0.7rem', color: '#0284c7', borderColor: '#bae6fd', backgroundColor: '#f0f9ff' }}
+                                      style={{ fontSize: '0.7rem', color: '#0284c7', borderColor: '#bae6fd', backgroundColor: '#f0f9ff', width: 'auto', padding: '0.6rem 0.6rem' }}
                                     >
-                                      Copiar Aviso
+                                      Aviso
                                     </button>
                                   </>
                                 )}
