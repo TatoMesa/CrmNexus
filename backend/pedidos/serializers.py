@@ -17,7 +17,7 @@ class PedidoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pedido
         fields = [
-            'id', 'cliente', 'telefono', 'color', 'anillado',
+            'id', 'numero', 'cliente', 'telefono', 'color', 'anillado',
             'caras', 'distribucion', 'seña', 'importe', 'notas',
             'estado', 'fecha', 'orden', 'archivos'
         ]
