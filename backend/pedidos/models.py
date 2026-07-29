@@ -14,7 +14,6 @@ class Pedido(models.Model):
         ('Entregado', 'Entregado'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     cliente = models.CharField(max_length=200)
     telefono = models.CharField(max_length=50, blank=True)
     color = models.CharField(max_length=10, choices=COLOR_CHOICES, default='ByN')

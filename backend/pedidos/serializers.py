@@ -10,7 +10,6 @@ class ArchivoAdjuntoSerializer(serializers.ModelSerializer):
 
 class PedidoSerializer(serializers.ModelSerializer):
     archivos = ArchivoAdjuntoSerializer(many=True, read_only=True)
-    id = serializers.UUIDField(read_only=True)
     fecha = serializers.DateTimeField(read_only=True, format='%Y-%m-%dT%H:%M:%S')
     seña = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=False)
     importe = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=False)

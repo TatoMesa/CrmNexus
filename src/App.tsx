@@ -56,6 +56,14 @@ const COLUMNS: { key: ColumnStatus; label: string; badgeClass: string }[] = [
   { key: 'Cliente Avisado', label: 'Cliente Avisado', badgeClass: 'avisado' }
 ];
 
+const formatPedidoId = (id: string | number) => {
+  const str = String(id);
+  if (/^\d+$/.test(str)) {
+    return `#${str.padStart(3, '0')}`;
+  }
+  return `#${str}`;
+};
+
 export default function App() {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -423,19 +431,25 @@ export default function App() {
   // Filtered Pedidos
   const filteredActivePedidos = activePedidos.filter(p => {
     const query = search.toLowerCase();
+    const formattedId = formatPedidoId(p.id).toLowerCase();
     return (
       p.cliente.toLowerCase().includes(query) ||
       p.telefono.includes(query) ||
-      p.notas.toLowerCase().includes(query)
+      p.notas.toLowerCase().includes(query) ||
+      String(p.id).includes(query) ||
+      formattedId.includes(query)
     );
   });
 
   const filteredHistoryPedidos = deliveredPedidos.filter(p => {
     const query = historySearch.toLowerCase();
+    const formattedId = formatPedidoId(p.id).toLowerCase();
     return (
       p.cliente.toLowerCase().includes(query) ||
       p.telefono.includes(query) ||
-      p.notas.toLowerCase().includes(query)
+      p.notas.toLowerCase().includes(query) ||
+      String(p.id).includes(query) ||
+      formattedId.includes(query)
     );
   });
 
@@ -659,7 +673,21 @@ export default function App() {
                           >
                             <div className="card-header">
                               <div>
-                                <h4 className="card-client">{pedido.cliente}</h4>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                                  <span style={{ 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: 800, 
+                                    backgroundColor: '#ecfdf5', 
+                                    color: '#047857', 
+                                    padding: '0.15rem 0.45rem', 
+                                    borderRadius: '6px',
+                                    border: '1px solid #a7f3d0',
+                                    letterSpacing: '0.02em'
+                                  }}>
+                                    {formatPedidoId(pedido.id)}
+                                  </span>
+                                  <h4 className="card-client" style={{ margin: 0 }}>{pedido.cliente}</h4>
+                                </div>
                                 <span className="card-date">{pedido.fecha}</span>
                               </div>
                             </div>
@@ -898,7 +926,20 @@ export default function App() {
                   {filteredHistoryPedidos.map(pedido => (
                     <tr key={pedido.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background-color var(--transition-fast)' }}>
                       <td style={{ padding: '1rem 1.25rem' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{pedido.cliente}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ 
+                            fontSize: '0.7rem', 
+                            fontWeight: 800, 
+                            backgroundColor: '#f1f5f9', 
+                            color: '#475569', 
+                            padding: '0.1rem 0.35rem', 
+                            borderRadius: '4px',
+                            border: '1px solid #cbd5e1'
+                          }}>
+                            {formatPedidoId(pedido.id)}
+                          </span>
+                          <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{pedido.cliente}</span>
+                        </div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>Entregado: {pedido.fecha}</div>
                       </td>
                       <td style={{ padding: '1rem 1.25rem' }}>
@@ -992,7 +1033,7 @@ export default function App() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">
-                {editingPedido ? 'Editar Pedido' : 'Nuevo Pedido'}
+                {editingPedido ? `Editar Pedido ${formatPedidoId(editingPedido.id)}` : 'Nuevo Pedido'}
               </h3>
               <button className="modal-close" onClick={() => setIsModalOpen(false)}>
                 <X size={18} />

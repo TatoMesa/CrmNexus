@@ -25,7 +25,21 @@ const getLocalPedidos = (): any[] => {
     return initial;
   }
   try {
-    return JSON.parse(data);
+    let parsed: any[] = JSON.parse(data);
+    // Sanear / Renumerar IDs si hay timestamps largos residuales
+    let updated = false;
+    parsed = parsed.map((item, index) => {
+      const num = parseInt(item.id, 10);
+      if (isNaN(num) || String(item.id).length > 5) {
+        updated = true;
+        return { ...item, id: String(index + 1) };
+      }
+      return item;
+    });
+    if (updated) {
+      localStorage.setItem('nexus_local_pedidos', JSON.stringify(parsed));
+    }
+    return parsed;
   } catch {
     return [];
   }
@@ -114,9 +128,14 @@ export const apiGetPedidos = async () => {
 export const apiCreatePedido = async (pedido: any) => {
   if (getToken() === 'demo-token') {
     const local = getLocalPedidos();
+    const maxId = local.reduce((max, p) => {
+      const num = parseInt(p.id, 10);
+      return !isNaN(num) && num > max ? num : max;
+    }, 0);
+    const nextId = String(maxId + 1);
     const newPedido = {
       ...pedido,
-      id: Date.now().toString(),
+      id: nextId,
       fecha: new Date().toLocaleDateString('es-AR'),
       archivos: []
     };
